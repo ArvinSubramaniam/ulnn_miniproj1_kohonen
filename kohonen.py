@@ -1,7 +1,27 @@
-
+"""Python script for Miniproject 1 of the Unsupervised and 
+Reinforcement Learning.
+"""
 
 import numpy as np
 import matplotlib.pylab as plb
+import scipy as sp
+
+
+
+dim = 28*28
+data_range = 255.0
+    
+# load in data and labels    
+data = np.array(np.loadtxt('data.txt'))
+labels = np.loadtxt('labels.txt')
+
+# select 4 digits    
+name = 'Arvin Subramaniam' 
+targetdigits = name2digits(name) # assign the four digits that should be used
+# this selects all data vectors that corresponds to one of the four digits
+data = data[np.logical_or.reduce([labels==x for x in targetdigits]),:]
+dy, dx = data.shape
+    
 
 def kohonen(eta,size_k,sigma,tmax):
     """Optimizes for either learning rate, network size, nbh parameter, and max iterations.
@@ -23,21 +43,6 @@ def kohonen(eta,size_k,sigma,tmax):
     """
     plb.close('all')
     
-    dim = 28*28
-    data_range = 255.0
-    
-    # load in data and labels    
-    data = np.array(np.loadtxt('data.txt'))
-    labels = np.loadtxt('labels.txt')
-
-    # select 4 digits    
-    name = 'Arvin Subramaniam' # REPLACE BY YOUR OWN NAME
-    targetdigits = name2digits(name) # assign the four digits that should be used
-    # this selects all data vectors that corresponds to one of the four digits
-    data = data[np.logical_or.reduce([labels==x for x in targetdigits]),:]
-    
-    dy, dx = data.shape
-    
     #initialise the centers randomly
     np.random.seed(123)
     centers = np.random.rand(size_k**2, dim) * data_range
@@ -56,47 +61,70 @@ def kohonen(eta,size_k,sigma,tmax):
     #build a neighborhood matrix
     neighbor = np.arange(size_k**2).reshape((size_k, size_k))
     
-    #set the maximal iteration count
-    #tmax = 10000 # this might or might not work; use your own convergence criterion
-    
-    #set the random order in which the datapoints should be presented
+    #This gives 1-to-2000 in 10 consecutive times (since 20000%2000 = 10)
     i_random = np.arange(tmax) % dy
-    #print(i_random.shape,"shape of i_random")
-    #np.random.shuffle(i_random)
     
-    grads = []
+    grads = np.zeros(tmax)
+    grad = np.zeros(tmax/dy) #Array of length 10
+    grad_w = np.zeros(tmax/dy)
+    std = np.zeros(tmax/dy) #errorbar if needed
     grad_reduced = [] #Logarithmically spaced gradients
     samples = np.geomspace(1,5000,200) #Sample 20 points on a log scale
-    for t, i in enumerate(i_random):#And so it goes through all the data sets (2000 points) 10000/2000 = 5 times
+    
+    for t, i in enumerate(i_random):#i is tmax%2000, t is up to 20000
         som_step(centers, data[i,:],neighbor,eta,sigma)
         a = som_step(centers, data[i,:],neighbor,eta,sigma)
-        grads.append(a)
+        grads[t] = a
         
     for i in samples:
         grad_reduced.append(grads[int(i)])
     
-    #Plots of gradients vs iterations
-    print(len(grads), "length of gradients measured")
-    plb.title("Full gradient")
-    plb.plot(np.linspace(1,len(grads),len(grads)),grads,'b')
+    """Get the averaged and winning gradient for each epoch"""
+    for i,j in enumerate(np.linspace(0,tmax,tmax/dy +1)):
+        if i == tmax/dy:
+            break
+        k = int(j)
+        grad[i] = np.mean(grads[k:dy+k])
+        grad_w[i] = np.max(grads[k:dy+k])
+        std[i] = np.std(grads[k:dy+k])
+     
+    """Plot average and winning gradient for each epoch"""
+    print(len(grad), "length of grad array")
+    plb.title("Average (accross dataset) gradient for each iteration")
+    plb.plot(np.linspace(1,len(grad),len(grad)),grad,'b')
+    plb.plot(np.linspace(1,len(grad_w),len(grad_w)),grad_w,'r')
+    #plb.errorbar(np.linspace(1,len(grad),len(grad)),grad,yerr=std)
     plb.xlabel("Iterations")
-    plb.ylabel("Updates")
+    plb.ylabel("Average gradient")
+    #plb.ylim(0,1500)
     plb.show()
     
-    print(len(grad_reduced), "length of spaced gradient measurements")
-    plb.title("Reduced gradient")
-    plb.plot(np.linspace(1,len(grad_reduced),len(grad_reduced)),grad_reduced,'b')
-    plb.xlabel("Iterations")
-    plb.ylabel("Updates")
-    plb.show()
+    
+    #Plots of gradients vs iterations
+    #print(len(grads), "length of gradients measured")
+    #plb.title("Full gradients")
+    #plb.plot(np.linspace(1,len(grads),len(grads)),grads,'b')
+    #plb.xlabel("Iterations")
+    #plb.ylabel("Updates")
+    #plb.ylim(0,1500)
+    #plb.show()
+    
+    #print(len(grad_reduced), "length of spaced gradient measurements")
+    #plb.title("Reduced gradient")
+    #plb.plot(np.linspace(1,len(grad_reduced),len(grad_reduced)),grad_reduced,'b')
+    #plb.xlabel("Iterations")
+    #plb.ylabel("Updates")
+    #plb.ylim(0,1500)
+    #plb.show()
     
     #Plot derivatives of reduced grads to check
-    der = np.gradient(grad_reduced)
-    plb.title("Rate of change of gradient")
-    plb.plot(np.linspace(1,len(der),len(der)),der,'b')
-    plb.xlabel("Iterations")
-    plb.ylabel("Rate of change of updates")
-    plb.show()
+    #der = np.gradient(grad_reduced)
+    #plb.title("Rate of change of gradient")
+    #plb.plot(np.linspace(1,len(der),len(der)),der,'b')
+    #plb.xlabel("Iterations")
+    #plb.ylabel("Rate of change of updates")
+    #plb.ylim(-10,10)
+    #plb.show()
 
 
     # Final visualization:
@@ -110,8 +138,55 @@ def kohonen(eta,size_k,sigma,tmax):
     print("Final centers")
     plb.show()
     plb.draw()
-   
     
+    return centers
+    
+    
+def assign_digit(centers):
+    """Args:
+        centers: final centers after updating
+
+       Returns:
+         digits: Digits assigned to each center 
+    """
+    idxs = []
+    for d in targetdigits:
+        for i in labels:
+            if i==d:
+                idxs.append(labels.tolist().index(i))
+    idxs_ = list(set(idxs))
+    
+    #Create a "minimum data matrix" to compute distances from
+    data_min = np.zeros((len(targetdigits),data.shape[1]))
+    for c,d in enumerate(targetdigits):
+        for j in idxs_:
+            if labels[j] == d:
+                data_min[c,:] = data[j,:]
+    
+    winners = []
+    #For each center pick the closest number
+    for i in range(centers.shape[0]):
+        dists = np.zeros(data_min.shape[0])
+        for d in range(data_min.shape[0]):
+            dists[d] = sp.spatial.distance.euclidean(centers[i,:],data_min[d,:])
+        arg_win = np.argmax(dists)                                              
+        winners.append(arg_win)
+    
+    # Assign winning numbers
+    output = np.zeros((centers.shape[0],centers.shape[1]))
+    for i,j in enumerate(winners):
+        output[i,:] = data_min[j,:]
+    
+    # Visualization of winners:
+    len_ = int(np.sqrt(len(winners)))
+    for i in range(1, len(winners)+1):
+        plb.subplot(len_,len_,i)
+        plb.imshow(np.reshape(output[i-1,:], [28, 28]),interpolation='bilinear')
+        plb.axis('off')
+    plb.show()
+    plb.draw()
+    
+                                                     
 
 def som_step(centers,data,neighbor,eta,sigma):
     """Performs one step of the sequential learning for a 
@@ -130,8 +205,9 @@ def som_step(centers,data,neighbor,eta,sigma):
        sigma    (scalar) the width of the gaussian neighborhood function.
                          Effectively describing the width of the neighborhood
                          
-       Returns:
-            grad: magnitude of weight update
+     Returns:
+         grad: update step for each data point
+                         
     """
     
     size_k = int(np.sqrt(len(centers)))
