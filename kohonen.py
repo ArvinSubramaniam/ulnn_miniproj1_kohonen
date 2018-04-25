@@ -129,6 +129,9 @@ def som_step(centers,data,neighbor,eta,sigma):
        eta      (scalar) a learning rate
        sigma    (scalar) the width of the gaussian neighborhood function.
                          Effectively describing the width of the neighborhood
+                         
+       Returns:
+            grad: magnitude of weight update
     """
     
     size_k = int(np.sqrt(len(centers)))
@@ -148,7 +151,7 @@ def som_step(centers,data,neighbor,eta,sigma):
         # update weights        
         centers[j,:] += disc * eta * (data - centers[j,:])
         
-    grad = np.linalg.norm(disc * eta * (data - centers)) #magnitude of weight update
+    grad = np.linalg.norm(disc * (data - centers)) #magnitude of weight update
     return grad
         
 
