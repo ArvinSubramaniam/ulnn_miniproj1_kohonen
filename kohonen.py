@@ -16,8 +16,9 @@ data = np.array(np.loadtxt('data.txt'))
 labels = np.loadtxt('labels.txt')
 
 # select 4 digits    
-name = 'Arvin Subramaniam' 
+name = 'Ilaria Ricchi' 
 targetdigits = name2digits(name) # assign the four digits that should be used
+print(targetdigits,"digits of name")
 # this selects all data vectors that corresponds to one of the four digits
 data = data[np.logical_or.reduce([labels==x for x in targetdigits]),:]
 dy, dx = data.shape
@@ -65,68 +66,39 @@ def kohonen(eta,size_k,sigma,tmax):
     i_random = np.arange(tmax) % dy
     
     grads = np.zeros(tmax)
+    grads_w = np.zeros(tmax)
     grad = np.zeros(tmax/dy) #Array of length 10
     grad_w = np.zeros(tmax/dy)
     std = np.zeros(tmax/dy) #errorbar if needed
-    grad_reduced = [] #Logarithmically spaced gradients
-    samples = np.geomspace(1,5000,200) #Sample 20 points on a log scale
-    
+ 
     for t, i in enumerate(i_random):#i is tmax%2000, t is up to 20000
         som_step(centers, data[i,:],neighbor,eta,sigma)
         a = som_step(centers, data[i,:],neighbor,eta,sigma)
-        grads[t] = a
-        
-    for i in samples:
-        grad_reduced.append(grads[int(i)])
+        grads[t] = np.mean(a)#Averaged over all nodes for each tmax
+        grads_w[t] = np.max(a)#Winnning node for each tmax
     
     """Get the averaged and winning gradient for each epoch"""
+    print("dy is",dy)
     for i,j in enumerate(np.linspace(0,tmax,tmax/dy +1)):
         print(i,j)
         if i == tmax/dy:
             break
         k = int(j)
         grad[i] = np.mean(grads[k:dy+k])
-        grad_w[i] = np.max(grads[k:dy+k])
+        grad_w[i] = np.mean(grads_w[k:dy+k])
         std[i] = np.std(grads[k:dy+k])
      
     """Plot average and winning gradient for each epoch"""
     print(len(grad), "length of grad array")
     plb.title("Average (accross dataset) gradient for each iteration")
-    plb.plot(np.linspace(1,len(grad),len(grad)),grad,'b')
-    plb.plot(np.linspace(1,len(grad_w),len(grad_w)),grad_w,'r')
+    plb.plot(np.linspace(1,len(grad),len(grad)),grad,'b',label="averaged gradient")
+    plb.plot(np.linspace(1,len(grad_w),len(grad_w)),grad_w,'r',label="winnig gradient")
     #plb.errorbar(np.linspace(1,len(grad),len(grad)),grad,yerr=std)
     plb.xlabel("Iterations")
     plb.ylabel("Average gradient")
+    plb.legend()
     #plb.ylim(0,1500)
     plb.show()
-    
-    
-    #Plots of gradients vs iterations
-    #print(len(grads), "length of gradients measured")
-    #plb.title("Full gradients")
-    #plb.plot(np.linspace(1,len(grads),len(grads)),grads,'b')
-    #plb.xlabel("Iterations")
-    #plb.ylabel("Updates")
-    #plb.ylim(0,1500)
-    #plb.show()
-    
-    #print(len(grad_reduced), "length of spaced gradient measurements")
-    #plb.title("Reduced gradient")
-    #plb.plot(np.linspace(1,len(grad_reduced),len(grad_reduced)),grad_reduced,'b')
-    #plb.xlabel("Iterations")
-    #plb.ylabel("Updates")
-    #plb.ylim(0,1500)
-    #plb.show()
-    
-    #Plot derivatives of reduced grads to check
-    #der = np.gradient(grad_reduced)
-    #plb.title("Rate of change of gradient")
-    #plb.plot(np.linspace(1,len(der),len(der)),der,'b')
-    #plb.xlabel("Iterations")
-    #plb.ylabel("Rate of change of updates")
-    #plb.ylim(-10,10)
-    #plb.show()
-
 
     # Final visualization:
     for i in range(1, size_k**2+1):
@@ -150,33 +122,20 @@ def assign_digit(centers):
        Returns:
          digits: Digits assigned to each center 
     """
-    idxs = []
-    for d in targetdigits:
-        for i in labels:
-            if i==d:
-                idxs.append(labels.tolist().index(i))
-    idxs_ = list(set(idxs))
-    
-    #Create a "minimum data matrix" to compute distances from
-    data_min = np.zeros((len(targetdigits),data.shape[1]))
-    for c,d in enumerate(targetdigits):
-        for j in idxs_:
-            if labels[j] == d:
-                data_min[c,:] = data[j,:]
-    
+        
     winners = []
     #For each center pick the closest number
     for i in range(centers.shape[0]):
-        dists = np.zeros(data_min.shape[0])
-        for d in range(data_min.shape[0]):
-            dists[d] = sp.spatial.distance.euclidean(centers[i,:],data_min[d,:])
-        arg_win = np.argmax(dists)                                              
+        dists = np.zeros(data.shape[0])
+        for d in range(data.shape[0]):
+            dists[d] = sp.spatial.distance.euclidean(centers[i,:],data[d,:])
+        arg_win = np.argmin(dists)                                              
         winners.append(arg_win)
     
     # Assign winning numbers
     output = np.zeros((centers.shape[0],centers.shape[1]))
     for i,j in enumerate(winners):
-        output[i,:] = data_min[j,:]
+        output[i,:] = data[j,:]
     
     # Visualization of winners:
     len_ = int(np.sqrt(len(winners)))
@@ -220,6 +179,7 @@ def som_step(centers,data,neighbor,eta,sigma):
     a,b = np.nonzero(neighbor == b)
         
     # update all units
+    grads = []
     for j in range(size_k**2):
         # find coordinates of this unit
         a1,b1 = np.nonzero(neighbor==j)
@@ -227,9 +187,9 @@ def som_step(centers,data,neighbor,eta,sigma):
         disc=gauss(np.sqrt((a-a1)**2+(b-b1)**2),[0, sigma])
         # update weights        
         centers[j,:] += disc * eta * (data - centers[j,:])
+        grads.append(np.linalg.norm(disc * (data - centers[j,:])))
         
-    grad = np.linalg.norm(disc * (data - centers)) #magnitude of weight update
-    return grad
+    return grads
         
 
 def gauss(x,p):
