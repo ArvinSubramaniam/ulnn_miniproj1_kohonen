@@ -81,6 +81,7 @@ def kohonen(eta,size_k,sigma,tmax):
     
     """Get the averaged and winning gradient for each epoch"""
     for i,j in enumerate(np.linspace(0,tmax,tmax/dy +1)):
+        print(i,j)
         if i == tmax/dy:
             break
         k = int(j)
