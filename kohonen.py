@@ -6,7 +6,35 @@ import numpy as np
 import matplotlib.pylab as plb
 import scipy as sp
 
+def name2digits(name):
+    """ takes a string NAME and converts it into a pseudo-random selection of 4
+     digits from 0-9.
+     
+     Example:
+     name2digits('Felipe Gerhard')
+     returns: [0 4 5 7]
+     """
+    
+    name = name.lower()
+    
+    if len(name)>25:
+        name = name[0:25]
+        
+    primenumbers = [2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97]
+    
+    n = len(name)
+    
+    s = 0.0
+    
+    for i in range(n):
+        s += primenumbers[i]*ord(name[i])*2.0**(i+1)
 
+    import scipy.io.matlab
+    Data = scipy.io.matlab.loadmat('hash.mat',struct_as_record=True)
+    x = Data['x']
+    t = np.int(np.mod(s,x.shape[0]))
+
+    return np.sort(x[t,:])
 
 dim = 28*28
 data_range = 255.0
@@ -84,15 +112,18 @@ def kohonen(eta,size_k,sigma,tmax):
         if i == tmax/dy:
             break
         k = int(j)
-        grad[i] = np.mean(grads[k:dy+k])
-        grad_w[i] = np.mean(grads_w[k:dy+k])
+        grad[i] = np.mean(grads[0:dy+k])#Average for each epoch(spread by dy)
+        grad_w[i] = np.mean(grads_w[0:dy+k])
         std[i] = np.std(grads[k:dy+k])
+    
      
     """Plot average and winning gradient for each epoch"""
+    #grad_tot = np.sum(grad)
+    #grad_tot_w = np.sum(grad_w)
     print(len(grad), "length of grad array")
     plb.title("Average (accross dataset) gradient for each iteration")
     plb.plot(np.linspace(1,len(grad),len(grad)),grad,'b',label="averaged gradient")
-    plb.plot(np.linspace(1,len(grad_w),len(grad_w)),grad_w,'r',label="winnig gradient")
+    #plb.plot(np.linspace(1,len(grad_w),len(grad_w)),grad_w,'r',label="winning gradient")
     #plb.errorbar(np.linspace(1,len(grad),len(grad)),grad,yerr=std)
     plb.xlabel("Iterations")
     plb.ylabel("Average gradient")
@@ -122,6 +153,37 @@ def assign_digit(centers):
        Returns:
          digits: Digits assigned to each center 
     """
+    #idxs = []
+    #for d in targetdigits:
+        #for i in labels:
+            #if i==d:
+                #idxs.append(labels.tolist().index(i))
+    
+    #Create a "minimum data matrix" to compute distances from
+    #data_min = np.zeros((len(targetdigits),data.shape[1]))
+    #for c,d in enumerate(targetdigits):
+        #for j in idxs_:
+            #if labels[j] == d:
+                #data_min[c,:] = data[j,:]
+                
+    #Visualization of minimum data matrix
+    #len_ = int(np.sqrt(len(targetdigits)))
+    #print("Plot of data min")
+    #for i in range(1, len(targetdigits)+1):
+        #plb.subplot(len_,len_,i)
+        #plb.imshow(np.reshape(data_min[i-1,:], [28, 28]),interpolation='bilinear')
+        #plb.axis('off')
+    #plb.show()
+    #plb.draw()
+    
+    #winners = []
+    #For each center pick the closest number
+    #for i in range(centers.shape[0]):
+        #dists = np.zeros(data_min.shape[0])
+        #for d in range(data_min.shape[0]):
+            #dists[d] = sp.spatial.distance.euclidean(centers[i,:],data_min[d,:])
+        #arg_win = np.argmin(dists)                                              
+        #winners.append(arg_win)
         
     winners = []
     #For each center pick the closest number
@@ -197,36 +259,6 @@ def gauss(x,p):
     Normalized such that N(x=p[0]) = 1.
     """
     return np.exp((-(x - p[0])**2) / (2 * p[1]**2))
-
-def name2digits(name):
-    """ takes a string NAME and converts it into a pseudo-random selection of 4
-     digits from 0-9.
-     
-     Example:
-     name2digits('Felipe Gerhard')
-     returns: [0 4 5 7]
-     """
-    
-    name = name.lower()
-    
-    if len(name)>25:
-        name = name[0:25]
-        
-    primenumbers = [2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97]
-    
-    n = len(name)
-    
-    s = 0.0
-    
-    for i in range(n):
-        s += primenumbers[i]*ord(name[i])*2.0**(i+1)
-
-    import scipy.io.matlab
-    Data = scipy.io.matlab.loadmat('hash.mat',struct_as_record=True)
-    x = Data['x']
-    t = np.int(np.mod(s,x.shape[0]))
-
-    return np.sort(x[t,:])
 
 
 if __name__ == "__main__":
