@@ -1,10 +1,9 @@
-"""Python script for Miniproject 1 of the Unsupervised and 
-Reinforcement Learning.
+"""This script contains the function used for the ULNN mini-project 1
+   on Kohonen networks.
 """
-
 import numpy as np
 import matplotlib.pylab as plb
-import seaborn as sns
+#import seaborn as sns
 import scipy as sp
 
 def name2digits(name):
@@ -93,12 +92,11 @@ def kohonen(eta,size_k,sigma,tmax, plot = False):
     #build a neighborhood matrix
     neighbor = np.arange(size_k**2).reshape((size_k, size_k))
     
-    #This gives 1-to-2000 in 10 consecutive times (since 20000%2000 = 10)
     i_random = np.arange(tmax) % dy
     
     grads = np.zeros(tmax)
     
-    for t, i in enumerate(i_random):#i is tmax%2000, t is up to 20000
+    for t, i in enumerate(i_random):
         som_step(centers, data[i,:],neighbor,eta,sigma)
         a = som_step(centers, data[i,:],neighbor,eta,sigma)
         grads[t] = np.mean(a)#Averaged over all nodes for each tmax
@@ -187,7 +185,10 @@ def inter_distance(centers):
     return l
 
 def optimize_params(sizes_k, sigmas, eta = 0.3, tmax=20000):
-    """ Args:
+    """ 
+    Chooses the optimal number of nodes and sigma based on maximizing the mean inter-cluster 
+    separation.
+        Args:
             sizes_k: list of numbers of weights to be use
             sigmas: list of numbers of nbh parameters to be used
             eta: learning rate = 0.3
@@ -206,12 +207,14 @@ def optimize_params(sizes_k, sigmas, eta = 0.3, tmax=20000):
             c = kohonen(eta,k,s,tmax)[0]
             loss[i,j]=inter_distance(c)
     arg_k, arg_s = np.unravel_index(loss.argmax(),loss.shape)
-    plb.figure(5)
+    print(loss, loss.shape,"loss to be plotted")
+    plb.imshow(loss,cmap="hot",interpolation="bilinear")
     plb.title("Heat map of inter-cluster loss function")
-    plb.imshow(loss, cmap="hot", interpolation='nearest')
     plb.colorbar()
-    plb.xlabel("sigma")
-    plb.ylabel("number of neurons")
+    plb.xticks(np.arange(len(sigmas)),sigmas)
+    plb.yticks(np.arange(len(sizes_k)),sizes_k)
+    plb.xlabel("sigmas")
+    plb.ylabel("Number of neurons")
     plb.show() 
                     
     k_op = sizes_k[arg_k]
@@ -240,9 +243,9 @@ def tesselate(centers):
     return assignments
 
 
-def assign_counting(centers):
+def assign_counting(centers,vis=False):
     """
-    Assigns digit to prototype by couting number of digits in each cluster. First, a reduced 
+    Assigns digit to prototype by determining the modal digit in each cluster. First, a reduced 
     assignment matrix, of dimensions num_nodes x len(targetdigits) is computed. For this, a
     "reduced labels" vector, of length dy is computed.
     
@@ -252,6 +255,7 @@ def assign_counting(centers):
         Args:
             centers: centers after convergence
             assigments: Assignment matrix that gives hard clustering (1 for in the cluster, 0 otherwise)
+            vis: For visualization of the center of mass of the modal number in each cluster
         
         Plots:
             Histogram of number of data points for each cluster
@@ -289,7 +293,7 @@ def assign_counting(centers):
     for i in range(k):
         for j in range(k):
             axes.append(axs[i,j])
-    print("Counting matrix is",reduced_assign)
+    #print("Counting matrix is",reduced_assign)
     
     for l in range(reduced_assign.shape[0]):
         axes[l].bar(targetdigits,reduced_assign[l,:],align='center')
@@ -300,7 +304,7 @@ def assign_counting(centers):
         arg = np.argmax(reduced_assign[i,:])
         modes.append(targetdigits[arg])
         
-    print("Modal data according to cluster is",modes)
+    #print("Modal data according to cluster is",modes)
     
     # Display the center of mass of the modal clusters
     com_modes = np.zeros((centers.shape[0],centers.shape[1]))
@@ -313,14 +317,16 @@ def assign_counting(centers):
         com_modes[i,:] = com_mode
         
     # Visualization of winners:
-    len_ = int(np.sqrt(com_modes.shape[0]))
-    for i in range(1, com_modes.shape[0]+1):
-        plb.title("Center of mass of each cluster")
-        plb.subplot(len_,len_,i)
-        plb.imshow(np.reshape(com_modes[i-1,:], [28, 28]),interpolation='bilinear')
-        plb.axis('off')
-    plb.show()
-    plb.draw()
+    if vis:
+        len_ = int(np.sqrt(com_modes.shape[0]))
+        for i in range(1, com_modes.shape[0]+1):
+            plb.subplot(len_,len_,i)
+            
+            plb.imshow(np.reshape(com_modes[i-1,:], [28, 28]),interpolation='bilinear')
+            plb.axis('off')
+               
+        plb.show()
+        plb.draw()
     
     return com_modes
 
@@ -338,13 +344,12 @@ def intra_cluster(com_modes, assignments):
     
     intracluster_sep = []
     for j in range(com_modes.shape[0]):
-        #print(j,"value of i")
         args = np.nonzero(assignments[j,:])
         data_in_cluster = [data[i] for i in args[0]]
-        diff = abs(np.mean(data_in_cluster,axis=0) - com_modes[j,:])
+        diff = abs(np.linalg.norm(np.mean(data_in_cluster,axis=0) - com_modes[j,:]))
         intracluster_sep.append(diff)
    
-    loss = np.mean(intracluster_sep)
+    loss = np.nanmean(intracluster_sep) #take the mean whlist ignoring nans
     return loss
 
 
@@ -372,12 +377,15 @@ def optimize_params_intra(sizes_k, sigmas, eta = 0.3, tmax=20000):
             cm = assign_counting(c)
             loss[i,j]=intra_cluster(cm,assign)
     arg_k, arg_s = np.unravel_index(loss.argmin(),loss.shape)
+    #print(loss,loss.shape,"loss function to be plotted")
     plb.figure(5)
-    plb.title("Heat map of inter-cluster loss function")
-    plb.imshow(loss, cmap="hot", interpolation='nearest')
+    plb.imshow(loss,cmap="hot",interpolation='bilinear')
+    plb.title("Heat map of intra-cluster loss function")
     plb.colorbar()
-    plb.xlabel("sigma")
-    plb.ylabel("number of neurons")
+    plb.xticks(np.arange(len(sigmas)),sigmas)
+    plb.yticks(np.arange(len(sizes_k)),sizes_k)
+    plb.xlabel("sigmas")
+    plb.ylabel("Number of neurons")
     plb.show() 
                     
     k_op = sizes_k[arg_k]
@@ -412,13 +420,15 @@ def joint_optimization(sizes_k, sigmas, eta = 0.3, tmax=20000):
             cm = assign_counting(c)
             loss_intra[i,j]=intra_cluster(cm,assign)
     loss_combined = loss_inter - loss_intra
-    arg_k, arg_s = np.unravel_index(loss_combined.argmax(),loss.shape)
-    plb.figure(5)
+    arg_k, arg_s = np.unravel_index(loss_combined.argmax(),loss_combined.shape)
+    plb.figure(7)
     plb.title("Heat map of inter-cluster - intra-cluster loss function")
-    ax = sns.heatmap(loss, cmap="hot")
-    #plb.colorbar()
-    plb.xlabel("sigma")
-    plb.ylabel("number of neurons")
+    plb.imshow(loss_combined,cmap="hot",interpolation="bilinear")
+    plb.colorbar()
+    plb.xticks(np.arange(len(sigmas)),sigmas)
+    plb.yticks(np.arange(len(sizes_k)),sizes_k)
+    plb.xlabel("sigmas")
+    plb.ylabel("Number of neurons")
     plb.show() 
                     
     k_op = sizes_k[arg_k]
@@ -426,42 +436,66 @@ def joint_optimization(sizes_k, sigmas, eta = 0.3, tmax=20000):
     return k_op, sig_op    
        
 
-def kohonen_sigma(rates,tmax=20000,eta=0.3,k=6):
-    """Args: 
-        Rates: rate of decrease to sigma=1 in tmax/dy epochs
+def kohonen_sigma(rates,tmax=20000,eta=0.3,k=8):
+    """
+    This function plots the inter-cluster - intra-cluster loss function vs. sigma
+    for each annealing rate, and the averaged (over sigma) loss for each rate.
+    
+       Args: 
+        Rates: annealing rate (alpha) of decrease to sigma=1 in tmax/dy epochs
         tmax: Number of iterations = 20000 by default
-        
-       Plots: Inter-cluster loss vs. sigma for each rate
-              Averaged inter-cluster loss for each rate
+        k: Number of neurons = 8 by default
               
        Returns: None
     """
     num_epochs = int(tmax/dy)
+    #print(num_epochs,"num of epochs")
     sigmas = []#list of arrays
     av_loss = []#Average losses for each rate
+    lossess = []
     lower_sig = 1
     for r in rates:
-        upper = int(r*num_epochs*lower_sig)
+        upper = int(r*num_epochs) + lower_sig
+        #print(upper,lower_sig,num_epochs,"stuff in linspace")
+        #print(np.linspace(upper,lower_sig,num_epochs), "each sigma array")
         sigmas.append(np.linspace(upper,lower_sig,num_epochs))
+    #print(sigmas,"should be array of sigmas")
     for i,s in enumerate(sigmas):#For each array of sigmas
-        print("Rate is",rates[i])
+        #print("Rate is",rates[i])
+        #print("sigma is",s)
         losses = []
         for j,si in enumerate(s):
             c = kohonen(eta,k,si,tmax)[0]
-            losses.append(inter_distance(c))
+            loss_inter = inter_distance(c)
+            assign = tesselate(c)
+            cm = assign_counting(c)
+            loss_intra = intra_cluster(cm,assign)
+            losses.append(loss_inter - loss_intra)
+        #print(losses,type(losses),"losses after appending")
         av_loss.append(np.mean(np.asarray(losses)))
-        plb.figure(6)
-        plb.title("Loss vs. sigma function for rate {}".format(rates[i]))
-        plb.plot(np.linspace(1,len(losses),len(losses)),losses)
-        plb.xlabel("Sigmas")
-        plb.ylabel("Inter-cluster loss")
-        plb.show()
+        lossess.append(np.asarray(losses))
+    #print(lossess,type(lossess),"length of lossess array")
+    #print(lossess[:],"many arrays")
+    #print(lossess[0],losses[0].shape[0],"array?")
+    plb.figure(6)
+    #print(sigmas[0],"first sigmas")
+    #print(sigmas[1],"first sigmas")
+    #print(sigmas[2],"first sigmas")
+    plb.title("Loss vs. sigma function for different rates")
+    plb.plot(sigmas[0][::-1],lossess[0],label="alpha = {}".format(rates[0]))
+    plb.plot(sigmas[1][::-1],lossess[1],label="alpha = {}".format(rates[1]))
+    plb.plot(sigmas[2][::-1],lossess[2],label="alpha = {}".format(rates[2]))
+    plb.xlabel("Sigmas")
+    plb.ylabel("Inter-cluster - intra-cluster loss")
+    plb.legend()
+    plb.hold()
+    plb.show()
      
     plb.figure(7)
     plb.title("Averaged loss vs. Rates")
     plb.plot(np.linspace(1,len(av_loss),len(av_loss)),av_loss)
     plb.xlabel("Rates")
-    plb.ylabel("Inter-cluster loss averaged over sigmas")
+    plb.ylabel("Loss averaged over sigmas")
     plb.show()  
     
     #Plot the different variations in sigma's for illustration
@@ -471,8 +505,7 @@ def kohonen_sigma(rates,tmax=20000,eta=0.3,k=6):
         plb.plot(np.linspace(1,len(list_),len(list_)),list_,label="rate of change of sigma is {}".format(rates[i]))
         plb.xlabel("Epochs")
         plb.ylabel("Sigmas")
-        plt.legend()
-        plb.hold()
+        plb.legend()
                   
     return None
                  
